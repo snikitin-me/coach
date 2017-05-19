@@ -1,0 +1,1263 @@
+1
+00:00:01,064 --> 00:00:06,141
+>> (Phillip Roberts) hello, come in and sit
+down. So for the last session before the afternoon
+
+2
+00:00:07,041 --> 00:00:12,082
+break, we have Phillip Roberts who works at
+Andea and is here from London ‑‑ Scotland.
+
+3
+00:00:12,082 --> 00:00:17,088
+Edinbrough.  ‑‑ wow, ten second memory,
+he's going to talk about the vent loop. If
+
+4
+00:00:17,088 --> 00:00:17,807
+everyone could give Phillip a big brownedder
+round of applause.
+
+5
+00:00:18,599 --> 00:00:20,633
+>> Phillip Roberts: Okay hello everyone, thanks
+for coming to the side track, it's awesome
+
+6
+00:00:20,939 --> 00:00:27,939
+to see it packed out in here. Can everyone
+give me a stretch. I needed to stretch, so
+
+7
+00:00:27,989 --> 00:00:34,989
+I look less weird. I want to talk about the
+event loop and what the heck is the event
+
+8
+00:00:35,149 --> 00:00:42,149
+loop, as in the event loop inside JavaScript.
+So first up, as he said I work for AndYet
+
+9
+00:00:43,329 --> 00:00:50,160
+which is an awesome little Dev shop in the
+US, look us up if you need help with real‑time
+
+10
+00:00:50,016 --> 00:00:57,016
+stuff. That's what we're good at. So, about
+18 months ago--I'm a paid professional JavaScript
+
+11
+00:00:58,035 --> 00:01:05,035
+developer--I thought to myself how does, like
+JavaScript actually work? And I wasn't entirely
+
+12
+00:01:05,005 --> 00:01:11,264
+sure. I'd heard V8 as a term, chrome's Runtime
+didn't really know what that meant, what that
+
+13
+00:01:11,759 --> 00:01:15,852
+did. I'd heard things like single threaded,
+you know obviously I'm using callbacks. How
+
+14
+00:01:16,689 --> 00:01:22,689
+do callbacks work? I started a journey of
+like reading and research and experimenting
+
+15
+00:01:22,689 --> 00:01:25,718
+in the browser which basically started like
+this.
+
+16
+00:01:25,979 --> 00:01:32,979
+ ‑‑ I was kind of like JavaScript what
+are you. I'm a single threaded single concurrent
+
+17
+00:01:33,086 --> 00:01:39,125
+language ‑‑ right. yeah, cool, I have
+a call stack, an event loop, a callback queue,
+
+18
+00:01:39,899 --> 00:01:45,860
+and some other APIs and stuff.  ‑‑ rite.
+I did not do a computer science degree. I
+
+19
+00:01:45,086 --> 00:01:50,142
+mean, these words, they're words, so I heard
+about V8 and the various Runtimes and different
+
+20
+00:01:51,042 --> 00:01:55,491
+browsers so I looked to V8 do you have a call
+stack, an event loop, a callback queue, and
+
+21
+00:01:55,869 --> 00:01:59,912
+some other APIs and stuff, I have a call stack
+and a heap, I don't know what those other
+
+22
+00:02:00,299 --> 00:02:07,299
+things are, okay, interesting so basically
+18 months passed. And I think I get this.
+
+23
+00:02:12,055 --> 00:02:16,056
+(Laughing) and so, this is what I want to
+share with you today. Hopefully this will
+
+24
+00:02:16,065 --> 00:02:22,076
+be useful if you're relatively new to JavaScript,
+help you understand why JavaScript is so weird
+
+25
+00:02:22,076 --> 00:02:26,134
+when you compare it to other languages you
+might used why callbacks are a thing, cause
+
+26
+00:02:27,034 --> 00:02:32,097
+us hell but are required. And if you're an
+experienced JavaScript developer hopefully
+
+27
+00:02:32,097 --> 00:02:37,106
+give you some fresh insights how the Runtime
+you're using works so you can think about
+
+28
+00:02:38,006 --> 00:02:45,006
+it a little better. So if we look at the JavaScript
+Runtime itself like V8 which is the Runtime
+
+29
+00:02:46,009 --> 00:02:53,009
+inside Chrome. This is a simplified view of
+what JavaScript Runtime is. The heap, where
+
+30
+00:02:57,031 --> 00:03:03,790
+memory allocation happens, and then there's
+the call stack, which is where your stack
+
+31
+00:03:04,069 --> 00:03:11,069
+frames are and all that kind of stuff, but,
+if you, like, clone the V8 code base and grep
+
+32
+00:03:11,489 --> 00:03:17,494
+for things like setTimeout or DOM or HTTP
+request, they're not in there, they don't
+
+33
+00:03:17,989 --> 00:03:24,430
+exist in V8, which was a surprise to me. It's
+first thing you use when you start thinking
+
+34
+00:03:24,043 --> 00:03:31,043
+about async stuff and it's not in the V8 source.
+Hmm ... interesting. So, over this 18 months
+
+35
+00:03:32,045 --> 00:03:36,414
+of discovery I come to realize this is really,
+this is really the bigger picture, this is
+
+36
+00:03:36,819 --> 00:03:41,950
+what I'm hoping to get you on board with today
+and understand what these pieces are, we have
+
+37
+00:03:41,095 --> 00:03:45,178
+the V8 Runtime but then we have these things
+called web APIs which are extra things that
+
+38
+00:03:46,078 --> 00:03:52,122
+the browser provides. DOM, AJAX, time out,
+things like that, we have this mythical event
+
+39
+00:03:53,022 --> 00:03:58,241
+loop and the callback queue. I'm sure you've
+heard some of these terms before, but maybe
+
+40
+00:03:58,439 --> 00:04:03,430
+you don't quite understand how these pieces
+pull together. So, I'm going to start from
+
+41
+00:04:03,043 --> 00:04:07,602
+the beginning, some of this will be new, to
+words might be new to people, other people
+
+42
+00:04:07,989 --> 00:04:13,220
+will get this. We're going to quickly move
+on from here, bear with me if this is obvious,
+
+43
+00:04:13,022 --> 00:04:18,070
+I think for a lot of people it's not. So,
+JavaScript is a single threaded programming
+
+44
+00:04:18,007 --> 00:04:23,103
+language, single threaded Runtime, it has
+a single call stack. And it can do one thing
+
+45
+00:04:24,066 --> 00:04:29,158
+at a time, that's what a single thread means,
+the program can run one piece of code at a
+
+46
+00:04:30,058 --> 00:04:34,113
+time. So, let's try and visualize that just
+to get our heads around what that mean, so
+
+47
+00:04:35,013 --> 00:04:40,072
+if I have some code like this on your left,
+we've got a few functions, a function multiplier
+
+48
+00:04:40,072 --> 00:04:45,111
+which multiplies two numbers, square which
+calls multiply with the same number twice,
+
+49
+00:04:46,011 --> 00:04:50,092
+a function which prints the square of a number
+of calling square and then calling console.log
+
+50
+00:04:50,092 --> 00:04:55,097
+and then at the bottom of our file we actually
+run print square, this code all good? Make
+
+51
+00:04:55,097 --> 00:05:02,097
+sense? Cool. So, if we run this, well, I should
+back up a step, so the call stack is basically ‑‑
+
+52
+00:05:04,044 --> 00:05:08,066
+it's a data structure which records basically
+where in the program we are, if we step into
+
+53
+00:05:08,066 --> 00:05:12,080
+a function, we put something on to the stack,
+if we return from a function, we pop off the
+
+54
+00:05:12,008 --> 00:05:17,090
+top of the stack that's all the stack can
+do, ‑‑ so if you run this file, there's
+
+55
+00:05:18,062 --> 00:05:22,147
+kind of a main function, right, like the file
+itself, so, we push that on to the stack.
+
+56
+00:05:23,047 --> 00:05:27,145
+Then we have some function definitions, they're
+just like defining the state of the world,
+
+57
+00:05:28,045 --> 00:05:32,077
+and finally we got to print square, right,
+so print square is a function call, so we
+
+58
+00:05:32,077 --> 00:05:36,171
+push that on to the stack, and immediately
+inside print square, push on to the stack,
+
+59
+00:05:37,071 --> 00:05:43,094
+which calls multiply, now we have a return
+statement, we multiply A and B and we return,
+
+60
+00:05:43,094 --> 00:05:48,099
+when we return we pop something off the stack,
+so, pop, multiplier of the stack, returning
+
+61
+00:05:48,099 --> 00:05:55,099
+to square, return to print square, console.log,
+there's no return, it's implicit, because
+
+62
+00:05:57,004 --> 00:06:01,068
+we got to the end of the function, and we're
+done so that's like a visualization of the
+
+63
+00:06:01,068 --> 00:06:08,068
+call stalk, does that make sense? (Yes, Phil)
+even if you haven't thought about the call
+
+64
+00:06:09,076 --> 00:06:14,140
+stack before, you've come across it when you've
+been doing browser‑side development, so
+
+65
+00:06:15,004 --> 00:06:19,088
+if we have code like this, a function baz
+which calls bar, which calls Foo, which throws
+
+66
+00:06:20,024 --> 00:06:27,024
+an error if we run it in Chrome we see this.
+And it prints the stack trace, right, the
+
+67
+00:06:29,004 --> 00:06:36,004
+state of the stack when that error happened,
+so, uncaught error oops Foo, bar, Baz, anonymous
+
+68
+00:06:38,005 --> 00:06:45,005
+function, which is our main. Equally, if you've
+heard the term like blowing the stack, this
+
+69
+00:06:45,015 --> 00:06:51,082
+is an example of that. Have a function foo
+which calls Foo , so what's going to happen
+
+70
+00:06:51,082 --> 00:06:58,082
+? We have a function main which calls foo
+which calls foo, which calls foo, which calls
+
+71
+00:06:58,009 --> 00:07:04,038
+foo, and ultimately chrome says, you probably
+didn't mean to call foo 16,000 times recursively,
+
+72
+00:07:05,019 --> 00:07:11,034
+I'll just kill things for you and you can
+figure out where your bug lies, right. So
+
+73
+00:07:11,034 --> 00:07:16,058
+although I may be representing a new side
+of the call stack you have some sense of it
+
+74
+00:07:16,058 --> 00:07:22,077
+in your development practice already. So,
+the big question then comes is like what happens
+
+75
+00:07:22,077 --> 00:07:29,077
+when things are slow? So, we talk about blocking
+and blocking behavior and blocking, there's
+
+76
+00:07:30,024 --> 00:07:35,083
+no strict definition of what is and didn't
+blocking, really it's just code that's slow.
+
+77
+00:07:35,083 --> 00:07:40,087
+So console.log isn't slow, doing a while loop
+from one to ten billion is slow, network requests
+
+78
+00:07:41,023 --> 00:07:48,023
+are slow. Image requests are slow. Things
+which are slow and on that stack are what
+
+79
+00:07:49,008 --> 00:07:56,008
+are blocking means. So heres a little example,
+so let's say we have, this is like a fake
+
+80
+00:07:57,004 --> 00:08:04,004
+bit of code, getSynchronous, right, like jQuery
+is like, AJAX request. What would happen if
+
+81
+00:08:04,061 --> 00:08:09,116
+those were synchronous requests, forget what
+we know about async callbacks they're synchronous.
+
+82
+00:08:10,016 --> 00:08:16,019
+If we go through it like we have, we call
+getSync and then we wait, because then we're
+
+83
+00:08:16,019 --> 00:08:21,094
+doing network request, network is relative
+to computers, are slow, hopefully that network
+
+84
+00:08:21,094 --> 00:08:28,094
+requests completes, we can move on, wait,
+move on. Wait, and, I mean, this network request
+
+85
+00:08:32,058 --> 00:08:38,064
+might never finish, so ... yeah, I guess I'll
+go home. Finally those three, you know blocking
+
+86
+00:08:39,018 --> 00:08:45,084
+behaviors complete and we can clear the stack,
+right. So in a programming language is single
+
+87
+00:08:45,084 --> 00:08:50,087
+threaded you're not using threads like say
+Ruby, that's what happens, right, we make
+
+88
+00:08:50,087 --> 00:08:55,135
+a network request, we have to just wait till
+it's done, because we have no way of handling
+
+89
+00:08:56,035 --> 00:09:03,035
+that. Why is this actually a problem? The
+problem is because we're running code in browsers.
+
+90
+00:09:04,036 --> 00:09:11,036
+So, let's you ‑‑ here we go, okay. So
+this is just, this is Chrome, this is the
+
+91
+00:09:13,039 --> 00:09:19,048
+code I just ran. Browsers don't give us ‑‑
+well they do give us synchronous AJAX request,
+
+92
+00:09:19,048 --> 00:09:23,057
+I'm faking this out with a big while loop,
+because it's synchronous, I basically while
+
+93
+00:09:24,038 --> 00:09:31,038
+loop for five seconds before continuing, so
+if I open up the console here. We can see
+
+94
+00:09:34,002 --> 00:09:40,071
+what happens, so with request foo.com, why
+this is happening, I can't do anything, right,
+
+95
+00:09:40,089 --> 00:09:44,095
+even the run button hasn't finished rerendering
+the fact that I clicked it. The browser is
+
+96
+00:09:45,049 --> 00:09:51,092
+blocked, it's stuck, it can't do anything
+until those requests complete. And then all
+
+97
+00:09:51,092 --> 00:09:55,103
+hell breaks loose because I did some stuff,it
+figured that out I'd done it, it couldn't
+
+98
+00:09:56,003 --> 00:10:03,003
+actually render it. Couldn't do anything.
+That's because if that call stack has things
+
+99
+00:10:03,096 --> 00:10:09,184
+on it, and here it's got these yeah, it's
+still going. We've got the synchronous request,
+
+100
+00:10:10,084 --> 00:10:14,170
+the browser can't do anything else. It can't
+render, it can't run any other code, it's
+
+101
+00:10:15,007 --> 00:10:19,086
+stuck. Not ideal, right if we want people
+to have nice fluid UIs, we can't block the
+
+102
+00:10:20,049 --> 00:10:27,049
+stack. So, how do we handle this? Well the
+simplest solution we're provided with is asynchronous
+
+103
+00:10:27,062 --> 00:10:34,062
+callbacks, there's almost no blocking functions
+in the browser, equally in node, they're all
+
+104
+00:10:35,048 --> 00:10:39,110
+made asynchronous, which basically means we
+run some code, give it a callback, and run
+
+105
+00:10:40,001 --> 00:10:45,025
+that later, if you've seen JavaScript you've
+seen asynchronous callbacks, what does this
+
+106
+00:10:45,034 --> 00:10:52,034
+actually look like. Simple example to remind
+people where we're at. Code like this, console.log
+
+107
+00:10:52,073 --> 00:10:59,073
+hi. Write, we run the setTimeout, but that
+queue's the console log for future so we skip
+
+108
+00:11:00,025 --> 00:11:07,025
+on to JSConf and then five seconds later we
+log "there" right, make sense? Happy. Basically
+
+109
+00:11:07,062 --> 00:11:12,129
+that's setTimeout is doing something. So,
+asynchronous callbacks with regards to the
+
+110
+00:11:13,029 --> 00:11:20,029
+stacks we saw before ... how does this work?
+Let's run the code. Console.log hi. setTimeout.
+
+111
+00:11:22,054 --> 00:11:27,137
+We know it doesn't run immediately, we know
+it's going to run in five seconds time, we
+
+112
+00:11:28,037 --> 00:11:33,044
+can't push it on to the stack, somehow it
+just disappears, we don't have like a way
+
+113
+00:11:34,007 --> 00:11:41,007
+of describing this yet, but we'll come to
+it. We log JSConfEU, clear, five seconds later
+
+114
+00:11:41,019 --> 00:11:48,019
+somehow magically "there" appears on the stack.
+How does that happen? And that's ‑‑ this
+
+115
+00:11:49,049 --> 00:11:55,142
+is basically where the event loop comes in
+on concurrency. Right, so I've been kind of
+
+116
+00:11:56,042 --> 00:11:59,105
+partially lying do you and telling you that
+JavaScript can only do one thing at one time.
+
+117
+00:12:00,005 --> 00:12:04,006
+That's true the JavaScript Runtime can only
+do one thing at one time. It can't make an
+
+118
+00:12:04,015 --> 00:12:08,051
+AJAX request while you're doing other code.
+It can't do a setTimeout while you're doing
+
+119
+00:12:08,051 --> 00:12:12,144
+another code. The reason we can do things
+concurrently is that the browser is more than
+
+120
+00:12:13,044 --> 00:12:18,057
+just the Runtime. So, remember this diagram,
+the JavaScript Runtime can do one thing at
+
+121
+00:12:18,057 --> 00:12:22,088
+a time, but the browser gives us these other
+things, gives us these we shall APIs, these
+
+122
+00:12:22,088 --> 00:12:29,088
+are effectively threads, you can just make
+calls to, and those pieces of the browser
+
+123
+00:12:29,097 --> 00:12:34,104
+are aware of this concurrency kicks in. If
+you're back end person this diagram looks
+
+124
+00:12:35,004 --> 00:12:42,004
+basically identical for node, instead of web
+APIs we have C++ APIs and the threading is
+
+125
+00:12:42,019 --> 00:12:49,019
+being hidden from you by C++. Now we have
+this picture let's see how this code runs
+
+126
+00:12:51,021 --> 00:12:57,099
+in a more full picture of what a browser looks
+like. So, same as before, run code, console
+
+127
+00:12:57,099 --> 00:13:04,099
+log hi, logs hi to the console, simple. now
+we can see what happens when we call setTimeout.
+
+128
+00:13:05,029 --> 00:13:12,029
+We are ‑‑ we pass this callback function
+and a delay to the setTimeout call. Now setTimeout
+
+129
+00:13:12,061 --> 00:13:17,076
+is an API provided to us by the browser, it
+doesn't live in the V8 source, it's extra
+
+130
+00:13:17,076 --> 00:13:21,163
+stuff we
+get in that we're running the JavaScript run
+
+131
+00:13:22,063 --> 00:13:28,160
+time in. The browser kicks off a timer for
+you. And now it's going to handle the count
+
+132
+00:13:29,006 --> 00:13:34,069
+down for you, right, so that means our setTimeout
+call, itself is now complete, so we can pop
+
+133
+00:13:35,023 --> 00:13:42,023
+off the stack. “JSConfEU”, clear, so,
+now we've got this timer in the web API, which
+
+134
+00:13:44,839 --> 00:13:50,670
+five seconds later is going to complete. Now
+the web API can't just start modifying your
+
+135
+00:13:50,067 --> 00:13:54,141
+code, it can't chuck stuff onto the stack
+when it's ready if it did it would appear
+
+136
+00:13:55,041 --> 00:13:59,122
+randomly in the middle of your code so this
+is where the task queue or callback queue
+
+137
+00:14:00,022 --> 00:14:07,022
+kicks in. Any of the web APIs pushes the callback
+on to the task queue when it's done. Finally
+
+138
+00:14:08,027 --> 00:14:13,043
+we get to the event loop, title of the talk,
+what the heck is the event loop is like the
+
+139
+00:14:13,043 --> 00:14:18,115
+simplest little piece in this whole equation,
+and it has one very simple job.
+
+140
+00:14:19,015 --> 00:14:23,016
+The event loops job is to look at the stack
+and look at the task queue. If the stack is
+
+141
+00:14:23,016 --> 00:14:27,057
+empty it takes the first thing on the queue
+and pushes it on to the stack which effectively
+
+142
+00:14:27,057 --> 00:14:33,118
+run it. So here we can see that now the stack
+is clear, there's a callback on the task queue,
+
+143
+00:14:34,018 --> 00:14:39,062
+the event loop runs, it says, oh, I get to
+do something, pushes the callback on to the
+
+144
+00:14:39,062 --> 00:14:44,118
+stack. Remember it's the stack is like JavaScript
+land, back inside V8, the callback appears
+
+145
+00:14:45,018 --> 00:14:52,018
+on the stack, run, console.log “there”,
+and we're done. Does that make sense? Everyone
+
+146
+00:14:52,074 --> 00:14:59,074
+where me? Awesome! Okay. So, now we can see
+how this works with probably one of the first
+
+147
+00:14:59,081 --> 00:15:03,147
+encounters you would have had with Async stuff
+which for some weird reason someone says says
+
+148
+00:15:04,047 --> 00:15:10,106
+you have to call setTimeout zero, ‑‑
+okay, you want me to run the function in zero
+
+149
+00:15:11,006 --> 00:15:14,725
+time? Why would I wrap it in a setTimeout?
+Like the first time you run across this, if
+
+150
+00:15:14,779 --> 00:15:21,779
+you're like me,i see it doing something, but
+I don't know why. The reason is, generally,
+
+151
+00:15:21,097 --> 00:15:25,966
+if you're trying to defer something until
+the stack is clear. So we know looking at
+
+152
+00:15:26,839 --> 00:15:29,500
+this, if you've written JavaScript, that we're
+going to see the same result, we're going
+
+153
+00:15:29,005 --> 00:15:35,784
+to see “hi” “JSConf”, and “there”
+is going to appear at the end. We can see
+
+154
+00:15:36,279 --> 00:15:41,750
+how that happens. The setTimeout zero, now
+it's going to complete immediately and push
+
+155
+00:15:41,075 --> 00:15:45,119
+it on to the queue, remember what I said about
+the event loop, it has to wait till the stack
+
+156
+00:15:46,019 --> 00:15:51,024
+is clear before it can push the callback on
+to the stack, so your stack is going to continue
+
+157
+00:15:51,024 --> 00:15:58,024
+to run, console.log “hi”, “JSConfEU”
+and clear, now the event loop can kick in
+
+158
+00:15:58,339 --> 00:16:05,339
+and call your callback. That's like an example
+of setTimeout zero, is deferring that execution
+
+159
+00:16:06,036 --> 00:16:13,036
+of code, for whatever reason to the end of
+the stack. Or until stack is clear. Okay.
+
+160
+00:16:14,073 --> 00:16:20,148
+So, all these web APIs work the same way,
+if we have AJAX request, we make an AJAX request
+
+161
+00:16:21,048 --> 00:16:28,048
+to the URL with a callback, works the same
+way, oops sorry, console log, “hi”, make
+
+162
+00:16:28,048 --> 00:16:32,217
+an AJAX request, the code for running that
+AJAX request does not live in JavaScript Runtime
+
+163
+00:16:32,649 --> 00:16:39,649
+but in the browser as a web API, so we spin
+it up with a callback in the URL, your code
+
+164
+00:16:40,012 --> 00:16:45,020
+can continue to run. Until that XHR request
+completes, or it may never complete, it's
+
+165
+00:16:45,092 --> 00:16:50,511
+okay, the stack can continue to run, assuming
+it completes, gets pushed to the queue,picked
+
+166
+00:16:51,339 --> 00:16:58,339
+up by the event loop and it's run. That's
+all that happens when an Async call happens.
+
+167
+00:16:58,036 --> 00:17:05,036
+Let's do a crazy complicated example, I hope
+this going to work, if you haven't realized
+
+168
+00:17:05,006 --> 00:17:11,855
+all this is in keynote there's like I don't
+know 500 animation steps in this whole deck.
+
+169
+00:17:12,449 --> 00:17:19,449
+(code blows up, flames animation) (Applause)
+J Whew ... no ... so ... interesting, we're
+
+170
+00:17:35,179 --> 00:17:42,179
+given a link. Hmm ... is this big enough,
+can people see? Okay, so basically I wrote
+
+171
+00:17:44,017 --> 00:17:51,017
+this talk for Scotland JS, after the talk
+I broke half of the slides and could not be
+
+172
+00:17:52,084 --> 00:17:56,129
+bothered to redo all the slides because it
+was a total pain in the ass in keynote to
+
+173
+00:17:57,029 --> 00:18:04,029
+do it so I took much easier route (Laughing)
+of writing a tool that can visualize the JavaScript
+
+174
+00:18:06,075 --> 00:18:13,075
+Runtime at Runtime, and it's called loop.
+So, let's just run this example and, which
+
+175
+00:18:15,009 --> 00:18:20,090
+was kind of the example that we had on the
+previous slide, I haven't shimmed XHR yet,
+
+176
+00:18:20,009 --> 00:18:25,009
+it's doable I just haven't done it. As you
+can see the code, we're going to log something,
+
+177
+00:18:25,009 --> 00:18:32,009
+this is a shim around addEventListener, setTimeout
+and we're going to do a console.log. ‑‑
+
+178
+00:18:33,559 --> 00:18:39,621
+I'm going to run it and see what happens so
+... add a DOM API, add a timeout, code is
+
+179
+00:18:40,179 --> 00:18:47,179
+going to continue to run, pushes the callback
+into the queue which runs, and we're done.
+
+180
+00:18:49,029 --> 00:18:54,097
+If I click on here then it's going to ... trigger
+the web API, queue the callback for the click
+
+181
+00:18:54,097 --> 00:19:00,178
+and run it. if I cluck a hundred times we
+can see what happens. I clicked, the click
+
+182
+00:19:01,078 --> 00:19:05,129
+doesn't get processed immediately, itself
+gets pushed to the queue, as the queue gets
+
+183
+00:19:06,029 --> 00:19:12,071
+processed, eventually my click is going to
+get dealt with, right. So I have a few more
+
+184
+00:19:12,071 --> 00:19:19,071
+examples I'm going to run through here. Here
+we go, okay, so, I'm just going to run through
+
+185
+00:19:24,005 --> 00:19:30,934
+a few examples just to kind of talk about
+a few things that you might have run in to
+
+186
+00:19:31,429 --> 00:19:37,220
+and not thought about with Async APIs, In
+this example we call setTimeout four times
+
+187
+00:19:37,022 --> 00:19:44,022
+with the one second delay, and console.log
+“hi”. By the time the callbacks get queued...
+
+188
+00:19:49,061 --> 00:19:53,147
+that fourth callback we asked for a one second
+delay, and it's still waiting, the callback
+
+189
+00:19:54,047 --> 00:19:56,090
+hasn't run, right .
+
+190
+00:19:56,009 --> 00:20:01,066
+this illustrates the ‑‑ like what time
+out is actually doing, it's not a guaranteed
+
+191
+00:20:02,047 --> 00:20:06,088
+time to execution, it's a minimum time to
+execution, just like setTimeout zero doesn't
+
+192
+00:20:06,088 --> 00:20:13,088
+run the code immediately it runs the code
+next‑ish, sometime, right? So ... in this
+
+193
+00:20:17,037 --> 00:20:24,037
+example I want to talk about callbacks, so,
+depending on who, speak to and how they phrase
+
+194
+00:20:25,073 --> 00:20:29,076
+things, callbacks can be one of two things,
+callbacks can be any function that another
+
+195
+00:20:30,003 --> 00:20:35,092
+function calls or callbacks can be more explicitly
+an asynchronous callback as in one that will
+
+196
+00:20:35,092 --> 00:20:40,851
+get pushed back on the callback queue in the
+future. This bit of code illustrates the difference,
+
+197
+00:20:41,679 --> 00:20:48,250
+right. The forEach method on an array, it
+doesn't run, it takes a function, which you
+
+198
+00:20:48,025 --> 00:20:52,064
+could call a callback, but it's not running
+it asynchronously, it's running it within
+
+199
+00:20:52,064 --> 00:20:59,064
+the current stack. We could define an asynchronous
+forEach so it can take an array, a callback
+
+200
+00:21:01,073 --> 00:21:06,112
+and for each item in the array it's going
+to do a setTimeout zero with that callback,
+
+201
+00:21:07,012 --> 00:21:12,101
+I guess this should pass in the value, but
+any way, so, I'm going to run it and we can
+
+202
+00:21:13,001 --> 00:21:18,014
+see what the difference is, so for the first
+block of code that runs, it's going to sit
+
+203
+00:21:18,014 --> 00:21:25,014
+and block the stack, right? Until it's complete,
+whereas in the Async version, okay, it's slowed
+
+204
+00:21:25,058 --> 00:21:30,063
+down, but we're basically going to queue a
+bunch of callbacks and they're going to clear
+
+205
+00:21:31,008 --> 00:21:36,857
+and then we can actually run through and do
+a console.log. In this example the console.log
+
+206
+00:21:36,929 --> 00:21:41,290
+is fast, so the benefit of doing it asynchronously
+is not obviously but let's say you're doing
+
+207
+00:21:41,029 --> 00:21:48,029
+some slow processing on each element in the
+array. I think I have that shown somewhere
+
+208
+00:21:52,002 --> 00:21:59,002
+no, no, I don't. Okay. So let's say ‑‑
+Ooops. So I have a delay function which is
+
+209
+00:22:01,054 --> 00:22:08,054
+just slow, it's just a slow thing. So ... let's
+say processing Async and here processing Sync.
+
+210
+00:22:15,024 --> 00:22:22,024
+Okay, now, I'm going to turn on a thing I've
+literally hacked together this morning, which
+
+211
+00:22:23,005 --> 00:22:27,033
+is to simulate the repaint or the render in
+the browser, something I haven't touched on
+
+212
+00:22:27,078 --> 00:22:33,176
+is how all of this interacts with rendering ‑‑
+I've kind of touched on it but not really
+
+213
+00:22:34,076 --> 00:22:41,076
+explained it. So, basically the browser is
+kind of constrained by what you're doing javaScript,
+
+214
+00:22:41,094 --> 00:22:46,159
+the browser would like to repaint the screen
+every 16.6 milliseconds, 60 frame a second
+
+215
+00:22:47,059 --> 00:22:53,092
+is ideal, that's the fastest it will do repaints
+if it can. But it's constrained by what you're
+
+216
+00:22:53,092 --> 00:22:58,731
+doing in JavaScript for various reasons, so
+it can't actually do a render if there is
+
+217
+00:22:59,559 --> 00:23:04,900
+code on the stack, right. Like the render
+kind of call is almost like a callback in
+
+218
+00:23:04,009 --> 00:23:09,107
+itself. It has to wait till the stack is clear.
+The difference is that the render is given
+
+219
+00:23:10,088 --> 00:23:17,088
+a higher priority than your callback, every
+16 milliseconds it's going to queue a rend,
+
+220
+00:23:18,059 --> 00:23:24,060
+wait till the stack is clear before it can
+actually do that render. So this is ‑‑
+
+221
+00:23:24,006 --> 00:23:28,029
+this render queue is just simulating a render,
+every second it's can I do a render? Yes,
+
+222
+00:23:28,083 --> 00:23:32,145
+can I do a render? Yes. Where, because our
+code isn't doing anything now. If I run the
+
+223
+00:23:33,045 --> 00:23:40,045
+code, you can see while we're doing this slow
+synchronous loop through the array, our render
+
+224
+00:23:40,073 --> 00:23:45,085
+is blocked, right, if our render is blocked
+you can't select text on the screen, you can't
+
+225
+00:23:45,085 --> 00:23:50,161
+click things and see the response, right,
+like the example I showed earlier. In this
+
+226
+00:23:51,061 --> 00:23:58,061
+example, okay, it's blocked while we queue
+up the async time out, that relatively quick
+
+227
+00:24:00,179 --> 00:24:04,580
+but we're given ‑‑ we're kind of giving
+the render a chance between each element because
+
+228
+00:24:04,058 --> 00:24:11,058
+we've queued it up asynchronously to jump
+in there and do the render, does that make
+
+229
+00:24:13,002 --> 00:24:13,046
+sense?
+
+230
+00:24:13,046 --> 00:24:15,072
+>> Yeah
+>> Yeah, cool. So, that's just kind of ‑‑
+
+231
+00:24:15,072 --> 00:24:19,136
+this is just like a simulation of how the
+rendering works, but it just really shows
+
+232
+00:24:20,036 --> 00:24:23,121
+you when people say don't block the event
+loop, this is exactly what they're talking
+
+233
+00:24:24,021 --> 00:24:27,075
+about. They're saying don't put shitty slow
+code on the stack because when you do that
+
+234
+00:24:27,075 --> 00:24:33,254
+the browser can't do what it needs to do,
+create a nice fluid UI. This is why when you're
+
+235
+00:24:33,929 --> 00:24:39,590
+doing things like image processing or Animating
+too many things gets sluggish if you're not
+
+236
+00:24:39,059 --> 00:24:46,059
+careful about how you queue up that code.
+So an example of that, we can see with the
+
+237
+00:24:48,008 --> 00:24:55,008
+scroll handlers ‑‑ so scroll handle ‑‑
+like scroll events in the DOM trigger a lot,
+
+238
+00:24:56,044 --> 00:25:01,090
+right, they trigger like ‑‑ I presume
+they trigger on every frame like every 16
+
+239
+00:25:01,009 --> 00:25:07,031
+milliseconds, if I have code like this this
+right. On document.scroll, animate something,
+
+240
+00:25:08,012 --> 00:25:15,012
+or do some work. If I have this code, like
+as I scroll it's going to queue up like a
+
+241
+00:25:15,029 --> 00:25:20,035
+ton of callbacks right. And then it has to
+go through and process all of those and each
+
+242
+00:25:20,089 --> 00:25:25,258
+of the processing of those is slow, then,
+okay, you're not blocking the stack, you're
+
+243
+00:25:26,059 --> 00:25:33,059
+flooding the queue with queued events. So,
+this is like just helping visualize, I guess,
+
+244
+00:25:34,299 --> 00:25:38,200
+what happens when you actually trigger all
+these callbacks, there's way you can debounce
+
+245
+00:25:38,002 --> 00:25:44,028
+that to basically say okay, we're going to
+queue up all those events, but let's do the
+
+246
+00:25:44,046 --> 00:25:51,046
+slow work every few seconds or until the user
+stops scrolling for some amount of time I
+
+247
+00:25:54,086 --> 00:26:01,086
+think that's basically it. There's a whole
+other talk in how the hell this works. Because
+
+248
+00:26:03,929 --> 00:26:09,980
+basically in running the code, like this code
+runs at Runtime, right, and it's slowed down
+
+249
+00:26:09,098 --> 00:26:16,098
+by I run it through a Esprima a JavaScript
+parser, I insert a big while loop, that takes
+
+250
+00:26:18,021 --> 00:26:25,021
+half a second, it just slow motions the code.
+Ship it to web worker and do a whole bunch
+
+251
+00:26:25,299 --> 00:26:31,470
+of stuff to visualize what's happening while
+doing it at run time that makes sense. A whole
+
+252
+00:26:31,047 --> 00:26:37,126
+other talk in that. I'm super excited about
+it and will talk to anyone about it after
+
+253
+00:26:38,026 --> 00:26:43,445
+because I think it's kind of neat, so with
+that, thanks very much ( applause)
+
