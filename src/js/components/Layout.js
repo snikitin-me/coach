@@ -1,8 +1,13 @@
 import React from "react";
+import PropTypes from 'prop-types'
 import YouTube from './YouTube';
 import Subtitles from './Subtitles';
 
 export default class Layout extends React.Component {
+  static propTypes = {
+    videoId: PropTypes.string
+  }
+
   constructor() {
     super();
     this.state = {
@@ -25,16 +30,19 @@ export default class Layout extends React.Component {
       }
     };
 
+    var subtitlesFileUrl = `/data/${this.props.videoId}-eng.srt.json`;
+
     return (
       <div>
         <YouTube
-          videoId="8aGhZQkoFbQ"
+          videoId={this.props.videoId}
           opts={opts}
           onReady={this._onReady}
           onChangeCurrentTime={this._onChangeCurrentTime.bind(this)}
         />
         <Subtitles
-          text="8aGhZQkoFbQ"
+          text={this.props.videoId}
+          fileUrl={subtitlesFileUrl}
           time={this.state.time}
         />
       </div>

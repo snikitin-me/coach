@@ -1,5 +1,5 @@
-import PropTypes from 'prop-types'
 import React from 'react';
+import PropTypes from 'prop-types'
 import isEqual from 'lodash.isequal';
 import youTubePlayer from 'youtube-player';
 

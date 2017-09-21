@@ -10,14 +10,15 @@ export default class Subtitles extends React.Component {
 
 
   componentDidMount() {
-    return fetch('/data/8aGhZQkoFbQ-eng.srt.json')
-      .then((response) => response.json())
-      .then((responseJson) => {
-        this._article = responseJson;
-      })
-      .catch((error) => {
-        console.error(error);
-      });
+    // return fetch(this.props.fileUrl)
+    //   .then((response) => response.json())
+    //   .then((responseJson) => {
+    //     this._article = responseJson;
+    //   })
+    //   .catch((error) => {
+    //     console.error(error);
+    //   });
+    this._article = INTERACTIVE_TRANSCRIPT_CONFIG.data
   }
 
   componentDidUpdate(prevProps, prevState){
