@@ -1,0 +1,41 @@
+.talk-transcript__para{
+	display: flex;
+	flex-direction: row;
+}
+
+.talk-transcript__para__time{
+	display: flex;
+    flex: 0 1 23px;
+    color: grey;
+    margin: 5px 60px 5px 10px;
+    background-color: lightgrey;
+    height: 20px;
+    padding: 5px;
+}
+
+.talk-transcript__para__text{
+	color:black;
+	display: flex;
+	flex:0 1 auto;
+	flex-direction: column;
+	align-items: flex-start;
+	padding:5px;
+}
+
+.talk-transcript__fragment{
+	font-size:18px;
+}
+
+.talk-transcript__fragment.selected{
+	background-color: rgba(140,180,200,0.5);
+	display: flex;
+	flex:0 1 auto;
+}
+
+.talk-article__body{
+
+} 
+
+.talk-transcript__body{
+
+}
