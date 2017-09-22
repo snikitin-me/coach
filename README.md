@@ -3,5 +3,5 @@
 
 ```
 $ npm install
-$ npm run dev
+$ npm run devser
 ```
