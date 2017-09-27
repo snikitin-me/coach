@@ -1,45 +1,26 @@
 import React from "react";
-
 export default class Subtitles extends React.Component {
   constructor() {
     super();
-    
-    this._article = null;
-    this._fragmentIndex = -1;
-  }
-
-
-  componentDidMount() {
-    // return fetch(this.props.fileUrl)
-    //   .then((response) => response.json())
-    //   .then((responseJson) => {
-    //     this._article = responseJson;
-    //   })
-    //   .catch((error) => {
-    //     console.error(error);
-    //   });
-    this._article = INTERACTIVE_TRANSCRIPT_CONFIG.data
-  }
-
-  componentDidUpdate(prevProps, prevState){
-    this.highlightFragment(this.props.time);
-  }
-
-  highlightFragment(time){
-    var curIndex = this.searchIndexByTime(time, this.getFragments());
-
-    if(curIndex > -1 && this._fragmentIndex != curIndex){
-
-      var lastSpan = document.querySelector(`.talk-transcript__fragment[data-index="${this._fragmentIndex}"]`);
-      // unselect last 
-      if(lastSpan) {
-        lastSpan.className = lastSpan.className.replace(/\sselected\b/, "");
-      }
-      var newSpan =  document.querySelector(`.talk-transcript__fragment[data-index="${curIndex}"]`);
-      newSpan.className += " selected";
-
-      this._fragmentIndex = curIndex;
+    this.state={
+      article:INTERACTIVE_TRANSCRIPT_CONFIG.data || [],
+      index:-1,
     }
+  }
+
+  componentWillUpdate(nextProps, nextState) {
+   this.searchIndexByTime(nextProps.time, this.state.article[0].fragments);
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    
+    if(this.state.index!==nextState.index){
+      return true;
+    }
+    if(this.props.time!==nextProps.time){
+      return true;
+    }
+    return false
   }
 
   searchIndexByTime(t, A) {
@@ -55,26 +36,15 @@ export default class Subtitles extends React.Component {
 
       if(i>0) i--;
 
-      if (A[i].from <= t && A[i].to >= t) return i;
-      else return -1;
-  }
-
-  getArticles() {
-    return this._article;
-  }
-
-  getFragments(){
-    return this._article[0].fragments;    
+      if (A[i].from <= t && A[i].to >= t) return this.setState({index:i});
+      else return this.setState({index:-1});
   }
 
   render() {
-
-    var articles = "";
-    if(this.getArticles()){
-    	articles = this.getArticles().map((article) => {
+    var articles = this.state.article.map((article) => {
 
     	  	const fragments = article.fragments.map((fragment, index) => {
-           return <span class="talk-transcript__fragment" data-index={index} key={index}>{fragment.text}</span>
+           return <span class={"talk-transcript__fragment " + (index===this.state.index?"selected":"")} data-index={index} key={index}>{fragment.text.replace(/>>/,"")}</span>
           });
 
           const divStyle = {
@@ -90,7 +60,7 @@ export default class Subtitles extends React.Component {
             			</span>
             		</p>;
       });
-    }
+    
 
     return (
       <div>{this.props.time}
